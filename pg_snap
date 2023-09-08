@@ -6,7 +6,7 @@ DB_NAME=$(basename $PARENT_DIR)
 SNAPSHOT_DIR=/tmp/pg_snap/snapshots
 processor_cores=$(sysctl -n hw.ncpu)
 
-CURRENT_VERSION="1.0.0"
+CURRENT_VERSION="1.0.1"
 GITHUB_URL="https://raw.githubusercontent.com/iseth/pg-snap/master/pg_snap"
 
 check_for_update() {
@@ -128,8 +128,8 @@ get_timestamp () {
     echo ${part2[0]}
 }
 
+check_for_update
 while [[ "$#" -gt 0 ]]; do
-    check_for_update
     case $1 in
         -l|--list) list_snapshots "$2"; shift ;;
         -c|--create) create_snapshot "$2"; shift;;
