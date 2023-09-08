@@ -10,7 +10,7 @@ Snapshot the database before making changes to the schema or data, and restore i
 
 ## Installation
 ```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/iseth/psql-snapshot/master/tools/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/iseth/pg-snap/master/tools/install.sh)"
 ```
 
 ## Usage

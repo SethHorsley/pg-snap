@@ -1,6 +1,6 @@
 #!/bin/bash
 
-GITHUB_URL="https://raw.githubusercontent.com/iseth/psql-snapshot/master/pg_snap"
+GITHUB_URL="https://raw.githubusercontent.com/iseth/pg-snap/master/pg_snap"
 
 mkdir -p /usr/local/bin
 

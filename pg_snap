@@ -7,7 +7,7 @@ SNAPSHOT_DIR=/tmp/pg_snap/snapshots
 processor_cores=$(sysctl -n hw.ncpu)
 
 CURRENT_VERSION="1.0.0"
-GITHUB_URL="https://raw.githubusercontent.com/iseth/psql-snapshot/master/pg_snap"
+GITHUB_URL="https://raw.githubusercontent.com/iseth/pg-snap/master/pg_snap"
 
 check_for_update() {
     echo "Checking for updates..."
