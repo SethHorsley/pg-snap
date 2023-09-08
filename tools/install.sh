@@ -6,4 +6,4 @@ mkdir -p /usr/local/bin
 
 # copy pg_snap to /usr/local/bin
 curl -s $GITHUB_URL -o /usr/local/bin/pg_snap
-chmod +x /usr/local/bin/pg_snap
+sudo chmod +x /usr/local/bin/pg_snap
