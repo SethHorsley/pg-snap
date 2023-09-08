@@ -1,0 +1,146 @@
+#!/bin/bash
+
+# Default values
+PARENT_DIR=$(dirname $PWD)
+DB_NAME=$(basename $PARENT_DIR)
+SNAPSHOT_DIR=/tmp/pg_snap/snapshots
+processor_cores=$(sysctl -n hw.ncpu)
+
+CURRENT_VERSION="1.0.0"
+GITHUB_URL="https://raw.githubusercontent.com/iseth/psql-snapshot/master/pg_snap"
+
+check_for_update() {
+    echo "Checking for updates..."
+    # Fetch the latest version number from GitHub (this assumes the GitHub version also contains a CURRENT_VERSION declaration)
+    LATEST_VERSION=$(curl -s $GITHUB_URL | grep "^CURRENT_VERSION=" | cut -d\" -f2)
+
+    # Compare version numbers, if the latest version is not the current version, update
+    if [ "$LATEST_VERSION" != "$CURRENT_VERSION" ]; then
+        echo "Update available. Updating..."
+        curl -s $GITHUB_URL -o $0 # $0 refers to the current script's name. This command will replace the current script with the updated version.
+        echo "Script updated to version $LATEST_VERSION. Please run it again to use the updated version."
+        exit
+    else
+        echo "You are using the latest version."
+    fi
+}
+
+list_snapshots () {
+    mkdir -p $SNAPSHOT_DIR
+    files=$(find $SNAPSHOT_DIR -type f -name "$DB_NAME*" -exec basename {} \;)
+
+    declare -a files_array=($(find $SNAPSHOT_DIR -type f -name "$DB_NAME*" -exec basename {} \;))
+
+    # Sort the array
+    IFS=$'\n' sorted_array=($(sort <<<"${files_array[*]}"))
+
+    # Print the sorted array (optional, for verification)
+    for file in "${sorted_array[@]}"; do
+        echo $file
+    done
+    # find $SNAPSHOT_DIR -maxdepth 1 -type f -name "$DB_name*" -exec basename {} \;
+}
+
+create_snapshot () {
+    mkdir -p $SNAPSHOT_DIR
+    output=$(pg_dump -U postgres -h localhost -p 5432 -F c -b -v -f /dev/null $DB_NAME 2>&1)
+    filename=$DB_NAME--"$(date '+%Y-%m-%d-%H:%M:%S')".backup
+
+    if [ $? -eq 0 ]; then
+        pg_dump -U postgres -h localhost -p 5432 -F c -b -f $SNAPSHOT_DIR/$filename $DB_NAME
+        echo "Snapshot: $filename"
+        echo "Backup successful!"
+    else
+        echo "Backup failed. See error below:"
+        echo "$output"
+        exit 1
+    fi
+}
+
+restore_snapshot() {
+    latest_snapshot=$(list_snapshots | tail -1)
+    selected_snapshot=${1:-$latest_snapshot}
+
+    drop_database
+    create_database
+
+    output=$(pg_restore --verbose --no-acl --no-owner -U postgres -h localhost -p 5432 -d $DB_NAME $SNAPSHOT_DIR/$selected_snapshot --jobs=$processor_cores 2>&1)
+
+    if [ $? -eq 0 ]; then
+        echo "Snapshot: $selected_snapshot"
+        echo "Restore successful!"
+    else
+        echo "Backup failed. See error below:"
+        echo "$output"
+        exit 1
+    fi
+}
+
+delete_snapshot() {
+    latest_snapshot=$(list_snapshots | tail -1)
+    selected_snapshot=${1:-$latest_snapshot}
+
+    echo "Delete snapshot: $selected_snapshot"
+    rm $SNAPSHOT_DIR/$selected_snapshot
+}
+
+# drop database
+drop_database () {
+    output=$(dropdb -e -f -U postgres $DB_NAME 2>&1)
+
+    if [ $? -eq 0 ]; then
+        echo "Database $DB_NAME successfully dropped."
+    else
+        echo "Failed to drop the database $DB_NAME."
+    fi
+}
+
+create_database () {
+    output=$(createdb -e -U postgres $DB_NAME 2>&1)
+
+    if [ $? -eq 0 ]; then
+        echo "Database $DB_NAME successfully created."
+    else
+        echo "Failed to create the database $DB_NAME."
+    fi
+}
+
+set_db () {
+    DB_NAME=$1
+}
+
+get_timestamp () {
+    my_string=$1
+
+    # Use parameter expansion to split string by "--"
+    part1=()
+
+    while [[ $my_string =~ "--" ]]; do
+        part1+=("${my_string%%--*}")
+        my_string="${my_string#*--}"
+    done
+
+    # echo "Array: ${part1[@]}"
+    # echo "String: $my_string"
+    part1+=("$my_string")
+
+    IFS='.' read -ra part2 <<< "$my_string"
+    echo ${part2[0]}
+}
+
+while [[ "$#" -gt 0 ]]; do
+    check_for_update
+    case $1 in
+        -l|--list) list_snapshots "$2"; shift ;;
+        -c|--create) create_snapshot "$2"; shift;;
+        -r|--restore) restore_snapshot "$2"; shift;;
+        -db|--db-name) set_db "$2"; shift;;
+        -v|--version) echo "Script version: $VERSION"; exit 0 ;;
+        *) echo "Unknown parameter passed: $1"; exit 1 ;;
+    esac
+    shift
+done
+
+echo ""
+
+#dropdb -e -f -U postgres $1
